@@ -12,20 +12,85 @@ const generateRandomString = function() {
   return strForShortUrl;
 }
 
+const existEmailLoop = function(emailBeingChecked) {
+  // let goodToGo = false;
+  for (const key in users) {
+    if (users[key].email === emailBeingChecked) {
+      return users[key];
+    }
+  }
+  return false;
+}
+
+//object urlDatabase to store the new created short URL and long URL
 const urlDatabase = {
   "b2xVn2": "http://www.lighthouselabs.ca",
   "9sm5xK": "http://www.google.com"
 };
 
+//object users which will be used to store and access the users in the app.
+const users = { 
+  "userRandomID": {
+    id: "userRandomID", 
+    email: "user@example.com", 
+    password: "purple-monkey-dinosaur"
+  },
+  "user2RandomID": {
+    id: "user2RandomID", 
+    email: "user2@example.com", 
+    password: "dishwasher-funk"
+  }
+}
+
+app.get("/login", (req, res) => {
+  res.render("login");
+});
+
 app.post("/login", (req, res) => {
   // console.log(req.body);
-  res.cookie("username", req.body.username);
-  res.redirect("/urls");
+  let user = existEmailLoop(req.body.email);
+  // console.log("post login", user);
+  if(user) {
+    if (req.body.password === user.password) {
+      res.cookie("user_id", user.id);
+      res.redirect("/urls");
+    } else {
+      res.statusCode = 403;
+      res.send();
+    }
+  } else {
+    res.statusCode = 403;
+    res.send();
+  }
+  // res.redirect("/urls");
 });
 
 app.post("/logout", (req,res) => {
-  res.clearCookie("username");
+  res.clearCookie("user_id");
   res.redirect("/urls");
+});
+
+app.get("/register", (req, res) => {
+  res.render("registration");
+});
+
+app.post("/register", (req, res) => {
+  // console.log(req.body); //it returns { email: 'sdf@sadf', password: 'sefwe' }
+  if (req.body.email.length ===0 || req.body.password.length === 0) {
+    res.statusCode = 400;
+    res.send();
+  } else {
+    if (!existEmailLoop(req.body.email)) {
+      const randomID = generateRandomString();
+      users[randomID] = {id: randomID, email: req.body.email, password: req.body.password};//use body since it handles HTML FORM, if handles user input, we should use req.params...
+      // console.log(users);
+      res.cookie("user_id", randomID);
+      res.redirect("/urls");
+    } else {
+      res.statusCode = 400;
+      res.send();
+    }
+  } 
 });
 
 app.get("/", (req, res) => {
@@ -37,7 +102,7 @@ app.get("/urls.json", (req, res) => {
 });
 
 app.get("/urls", (req, res) => {
-  let templateVars = {urls: urlDatabase, username: req.cookies["username"]};
+  let templateVars = {urls: urlDatabase, user: users[req.cookies["user_id"]]};
   res.render("urls_index", templateVars);
 });
 
@@ -50,12 +115,12 @@ app.post("/urls", (req, res) => {
 })
 
 app.get("/urls/new", (req, res) => {
-  res.render("urls_new");
+  res.render("urls_new", {user: users[req.cookies["user_id"]]});
 });
 //above route must be above "/urls/:shortURL" since otherwise it would be taken as :ID
 
 app.get("/urls/:shortURL", (req, res) => {
-  let templateVars = {shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL], username: req.cookies["username"]}; //passing username to this template so that _header can get the username as well.
+  let templateVars = {shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL], user: users[req.cookies["user_id"]]};
   res.render("urls_show", templateVars);
 });
 

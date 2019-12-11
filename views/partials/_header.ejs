@@ -17,21 +17,20 @@
         <button type="submit" class="btn btn-primary">Submit</button>
       </div>
     </form> -->
-    <% if (username) { %>
-      <h3>Logged in as <%= username; %></h3>
+    <% if (user) { %>
+      <h3>Logged in as <%= user.email; %></h3>
       <form class="form-inline" action="/logout" method="POST">
         <div class="form-group mb-2">
           <button type="submit" class="btn btn-primary">Logout</button>
         </div>
       </form>
     <% } else { %>
-      <form class="form-inline" action="/login" method="POST">
-        <div class="form-group mb-2">
-          <label for="username">username</label>
-          <input class="form-control" type="text" name="username" placeholder="type your username..." style="width: 300px; margin: 1em">
-          <button type="submit" class="btn btn-primary">Login</button>
-        </div>
-      </form>
+      <a href = "/login"><button type="login" class="btn btn-primary">Login</button></a>
+      <a href = "/register"><button type="register" class="btn btn-primary">register</button></a>
     <% } %>
+    <!-- <div class="login_register">
+      <a href = "/register"><button type="register" class="btn btn-primary">register</button></a>
+      <a href = "/login"><button type="login" class="btn btn-primary">Login</button></a>
+    </div> -->
   </nav>
 </header>

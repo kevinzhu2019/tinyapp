@@ -1,4 +1,5 @@
 const express = require("express");
+const { getUserByEmail } = require("./helpers");
 const app = express();
 const PORT = process.env.port || 8080; // default port 8080
 const bodyParser = require("body-parser");
@@ -12,20 +13,24 @@ const generateRandomString = function() {
   return strForShortUrl;
 }
 
-const existEmailLoop = function(emailBeingChecked) {
-  // let goodToGo = false;
-  for (const key in users) {
-    if (users[key].email === emailBeingChecked) {
-      return users[key];
+//move the getUserByEmail(get user by email) function into help.js file
+
+const urlsForUser = (id) => {
+  let userURLDatabase = {};
+  for (const item in urlDatabase) {
+    if (urlDatabase[item].userID === id) {
+      userURLDatabase[item] = {};
+      userURLDatabase[item].longURL = urlDatabase[item].longURL;
+      userURLDatabase[item].userID = urlDatabase[item].userID;
     }
   }
-  return false;
-}
+  return userURLDatabase;
+};
 
 //object urlDatabase to store the new created short URL and long URL
 const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
+  "b2xVn2": {longURL: "http://www.lighthouselabs.ca", userID: "userRandomID"} ,
+  "9sm5xK": {longURL: "http://www.google.com", userID: "user2RandomID"}
 };
 
 //object users which will be used to store and access the users in the app.
@@ -48,7 +53,7 @@ app.get("/login", (req, res) => {
 
 app.post("/login", (req, res) => {
   // console.log(req.body);
-  let user = existEmailLoop(req.body.email);
+  let user = getUserByEmail(req.body.email, users);
   // console.log("post login", user);
   if(user) {
     if (req.body.password === user.password) {
@@ -80,7 +85,7 @@ app.post("/register", (req, res) => {
     res.statusCode = 400;
     res.send();
   } else {
-    if (!existEmailLoop(req.body.email)) {
+    if (!getUserByEmail(req.body.email)) {
       const randomID = generateRandomString();
       users[randomID] = {id: randomID, email: req.body.email, password: req.body.password};//use body since it handles HTML FORM, if handles user input, we should use req.params...
       // console.log(users);
@@ -102,15 +107,17 @@ app.get("/urls.json", (req, res) => {
 });
 
 app.get("/urls", (req, res) => {
-  let templateVars = {urls: urlDatabase, user: users[req.cookies["user_id"]]};
+  let userURLDatabase = urlsForUser(req.cookies["user_id"]);
+  let templateVars = {urls: userURLDatabase, user: users[req.cookies["user_id"]]};
   res.render("urls_index", templateVars);
 });
 
 app.post("/urls", (req, res) => {
   // console.log(req.body);
-  // res.send("ok");
   let shortURL = generateRandomString();
-  urlDatabase[shortURL] = req.body["longURL"];
+  urlDatabase[shortURL] = {}; //create the empty object before adding contents in it.
+  urlDatabase[shortURL]["longURL"] = req.body["longURL"];
+  urlDatabase[shortURL]["userID"] = req.cookies["user_id"];
   res.redirect(`/urls/${shortURL}`);
 })
 
@@ -120,7 +127,8 @@ app.get("/urls/new", (req, res) => {
 //above route must be above "/urls/:shortURL" since otherwise it would be taken as :ID
 
 app.get("/urls/:shortURL", (req, res) => {
-  let templateVars = {shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL], user: users[req.cookies["user_id"]]};
+  let templateVars = {shortURL: req.params.shortURL, 
+    longURL: urlDatabase[req.params.shortURL].longURL, user: users[req.cookies["user_id"]]};
   res.render("urls_show", templateVars);
 });
 
@@ -132,12 +140,16 @@ app.post("/urls/:shortURL/delete", (req, res) => {
 });
 
 app.post("/urls/:id", (req, res) => {
-  urlDatabase[req.params.id] = req.body.longURL;
-  res.redirect("/urls/");
+  if (!req.cookies["user_id"]) {
+    res.redirect("login");
+  } else if (urlDatabase[req.params.id].userID === req.cookies["user_id"]) {
+    res.redirect("/urls/");
+  }
+  // urlDatabase[req.params.id].longURL = req.body.longURL;
 });
 
 app.get("/u/:shortURL", (req, res) => {
-  const longURL = urlDatabase[req.params.shortURL];
+  const longURL = urlDatabase[req.params.shortURL].longURL;
   res.redirect(longURL);
 })
 
@@ -162,3 +174,5 @@ app.get("/set", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}!`);
 });
+
+module.exports = users;

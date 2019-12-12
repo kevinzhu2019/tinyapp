@@ -7,6 +7,11 @@ const cookieParser = require('cookie-parser');
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(cookieParser());
 app.set("view engine", "ejs");
+//***********encrypt********/
+const bcrypt = require('bcrypt');
+const password = "purple-monkey-dinosaur"; // found in the req.params object
+const hashedPassword = bcrypt.hashSync(password, 10);
+//***********encrypt********/
 
 const generateRandomString = function() {
   let strForShortUrl = Math.random().toString(30).slice(-6);
@@ -56,7 +61,7 @@ app.post("/login", (req, res) => {
   let user = getUserByEmail(req.body.email, users);
   // console.log("post login", user);
   if(user) {
-    if (req.body.password === user.password) {
+    if (bcrypt.compareSync(req.body.password, user.password)) {
       res.cookie("user_id", user.id);
       res.redirect("/urls");
     } else {
@@ -87,8 +92,9 @@ app.post("/register", (req, res) => {
   } else {
     if (!getUserByEmail(req.body.email)) {
       const randomID = generateRandomString();
-      users[randomID] = {id: randomID, email: req.body.email, password: req.body.password};//use body since it handles HTML FORM, if handles user input, we should use req.params...
-      // console.log(users);
+      let hashedPassword = bcrypt.hashSync(req.body.password, 10);
+      users[randomID] = {id: randomID, email: req.body.email, password: hashedPassword};//use body since it handles HTML FORM, if handles user input, we should use req.params...
+      console.log(users);
       res.cookie("user_id", randomID);
       res.redirect("/urls");
     } else {

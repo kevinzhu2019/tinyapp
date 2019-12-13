@@ -20,7 +20,7 @@ const hashedPassword2 = bcrypt.hashSync(password2, 10);
 const generateRandomString = function() {
   let strForShortUrl = Math.random().toString(30).slice(-6);
   return strForShortUrl;
-}
+};
 
 //move the getUserByEmail(get user by email) function into help.js file
 
@@ -43,18 +43,18 @@ const urlDatabase = {
 };
 
 //object users which will be used to store and access the users in the app.
-const users = { 
+const users = {
   "userRandomID": {
-    id: "userRandomID", 
-    email: "user@example.com", 
+    id: "userRandomID",
+    email: "user@example.com",
     password: hashedPassword
   },
   "user2RandomID": {
-    id: "user2RandomID", 
-    email: "user2@example.com", 
+    id: "user2RandomID",
+    email: "user2@example.com",
     password: hashedPassword2
   }
-}
+};
 
 app.get("/login", (req, res) => {
   res.render("login");
@@ -64,7 +64,7 @@ app.post("/login", (req, res) => {
   // console.log(req.body);
   let user = getUserByEmail(req.body.email, users);
   // console.log("post login", user);
-  if(user) {
+  if (user) {
     if (bcrypt.compareSync(req.body.password, user.password)) {
       // res.cookie("user_id", user.id);
       req.session.user_id = user.id;
@@ -92,7 +92,7 @@ app.get("/register", (req, res) => {
 
 app.post("/register", (req, res) => {
   // console.log(req.body); //it returns { email: 'sdf@sadf', password: 'sefwe' }
-  if (req.body.email.length ===0 || req.body.password.length === 0) {
+  if (req.body.email.length === 0 || req.body.password.length === 0) {
     res.statusCode = 400;
     res.send();
   } else {
@@ -100,7 +100,7 @@ app.post("/register", (req, res) => {
       const randomID = generateRandomString();
       let hashedPassword = bcrypt.hashSync(req.body.password, 10);
       users[randomID] = {id: randomID, email: req.body.email, password: hashedPassword};//use body since it handles HTML FORM, if handles user input, we should use req.params...
-      console.log(users);
+      // console.log(users);
       // res.cookie("user_id", randomID);
       req.session.user_id = randomID;
       res.redirect("/urls");
@@ -108,7 +108,7 @@ app.post("/register", (req, res) => {
       res.statusCode = 400;
       res.send();
     }
-  } 
+  }
 });
 
 app.get("/", (req, res) => {
@@ -134,7 +134,7 @@ app.post("/urls", (req, res) => {
   // urlDatabase[shortURL]["userID"] = req.cookies["user_id"];
   urlDatabase[shortURL]["userID"] = req.session.user_id;
   res.redirect(`/urls/${shortURL}`);
-})
+});
 
 app.get("/urls/new", (req, res) => {
   // res.render("urls_new", {user: users[req.cookies["user_id"]]});
@@ -143,7 +143,7 @@ app.get("/urls/new", (req, res) => {
 //above route must be above "/urls/:shortURL" since otherwise it would be taken as :ID
 
 app.get("/urls/:shortURL", (req, res) => {
-  let templateVars = {shortURL: req.params.shortURL, 
+  let templateVars = {shortURL: req.params.shortURL,
     longURL: urlDatabase[req.params.shortURL].longURL, user: users[req.session.user_id]};
   res.render("urls_show", templateVars);
 });
@@ -181,11 +181,11 @@ app.post("/urls/:id", (req, res) => {
 });
 
 app.get("/u/:shortURL", (req, res) => {
-  console.log(urlDatabase);
+  // console.log(urlDatabase);
   const longURL = urlDatabase[req.params.shortURL].longURL;
-  console.log(longURL);
+  // console.log(longURL);
   res.redirect(longURL);
-})
+});
 
 app.get("/hello", (req, res) => {
   res.send("<html><body>Hello <b>World</b></body></html>\n");
@@ -199,7 +199,7 @@ app.get("/hello", (req, res) => {
 app.get("/set", (req, res) => {
   const a = 1;
   res.send(`a = ${a}`);
-})
+});
 
 // app.get("/fetch", (req, res) => {
 //   res.send(`a = ${a}`);

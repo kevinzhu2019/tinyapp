@@ -3,14 +3,18 @@ const { getUserByEmail } = require("./helpers");
 const app = express();
 const PORT = process.env.port || 8080; // default port 8080
 const bodyParser = require("body-parser");
-const cookieParser = require('cookie-parser');
+// const cookieParser = require('cookie-parser'); //replace cookieParser with cookieSession
+const cookieSession = require('cookie-session');
 app.use(bodyParser.urlencoded({extended: true}));
-app.use(cookieParser());
+// app.use(cookieParser());
+app.use(cookieSession({keys: ['light']}));
 app.set("view engine", "ejs");
 //***********encrypt********/
 const bcrypt = require('bcrypt');
-const password = "purple-monkey-dinosaur"; // found in the req.params object
-const hashedPassword = bcrypt.hashSync(password, 10);
+const password1 = "purple-monkey-dinosaur";
+const hashedPassword = bcrypt.hashSync(password1, 10);
+const password2 = "dishwasher-funk";
+const hashedPassword2 = bcrypt.hashSync(password2, 10);
 //***********encrypt********/
 
 const generateRandomString = function() {
@@ -34,7 +38,7 @@ const urlsForUser = (id) => {
 
 //object urlDatabase to store the new created short URL and long URL
 const urlDatabase = {
-  "b2xVn2": {longURL: "http://www.lighthouselabs.ca", userID: "userRandomID"} ,
+  "b2xVn2": {longURL: "http://www.lighthouselabs.ca", userID: "userRandomID"},
   "9sm5xK": {longURL: "http://www.google.com", userID: "user2RandomID"}
 };
 
@@ -43,12 +47,12 @@ const users = {
   "userRandomID": {
     id: "userRandomID", 
     email: "user@example.com", 
-    password: "purple-monkey-dinosaur"
+    password: hashedPassword
   },
   "user2RandomID": {
     id: "user2RandomID", 
     email: "user2@example.com", 
-    password: "dishwasher-funk"
+    password: hashedPassword2
   }
 }
 
@@ -62,7 +66,8 @@ app.post("/login", (req, res) => {
   // console.log("post login", user);
   if(user) {
     if (bcrypt.compareSync(req.body.password, user.password)) {
-      res.cookie("user_id", user.id);
+      // res.cookie("user_id", user.id);
+      req.session.user_id = user.id;
       res.redirect("/urls");
     } else {
       res.statusCode = 403;
@@ -76,7 +81,8 @@ app.post("/login", (req, res) => {
 });
 
 app.post("/logout", (req,res) => {
-  res.clearCookie("user_id");
+  // res.clearCookie("user_id");
+  req.session = null;
   res.redirect("/urls");
 });
 
@@ -95,7 +101,8 @@ app.post("/register", (req, res) => {
       let hashedPassword = bcrypt.hashSync(req.body.password, 10);
       users[randomID] = {id: randomID, email: req.body.email, password: hashedPassword};//use body since it handles HTML FORM, if handles user input, we should use req.params...
       console.log(users);
-      res.cookie("user_id", randomID);
+      // res.cookie("user_id", randomID);
+      req.session.user_id = randomID;
       res.redirect("/urls");
     } else {
       res.statusCode = 400;
@@ -113,8 +120,9 @@ app.get("/urls.json", (req, res) => {
 });
 
 app.get("/urls", (req, res) => {
-  let userURLDatabase = urlsForUser(req.cookies["user_id"]);
-  let templateVars = {urls: userURLDatabase, user: users[req.cookies["user_id"]]};
+  // let userURLDatabase = urlsForUser(req.cookies["user_id"]);
+  let userURLDatabase = urlsForUser(req.session.user_id);
+  let templateVars = {urls: userURLDatabase, user: users[req.session.user_id]};
   res.render("urls_index", templateVars);
 });
 
@@ -123,39 +131,59 @@ app.post("/urls", (req, res) => {
   let shortURL = generateRandomString();
   urlDatabase[shortURL] = {}; //create the empty object before adding contents in it.
   urlDatabase[shortURL]["longURL"] = req.body["longURL"];
-  urlDatabase[shortURL]["userID"] = req.cookies["user_id"];
+  // urlDatabase[shortURL]["userID"] = req.cookies["user_id"];
+  urlDatabase[shortURL]["userID"] = req.session.user_id;
   res.redirect(`/urls/${shortURL}`);
 })
 
 app.get("/urls/new", (req, res) => {
-  res.render("urls_new", {user: users[req.cookies["user_id"]]});
+  // res.render("urls_new", {user: users[req.cookies["user_id"]]});
+  res.render("urls_new", {user: users[req.session.user_id]});
 });
 //above route must be above "/urls/:shortURL" since otherwise it would be taken as :ID
 
 app.get("/urls/:shortURL", (req, res) => {
   let templateVars = {shortURL: req.params.shortURL, 
-    longURL: urlDatabase[req.params.shortURL].longURL, user: users[req.cookies["user_id"]]};
+    longURL: urlDatabase[req.params.shortURL].longURL, user: users[req.session.user_id]};
   res.render("urls_show", templateVars);
 });
 
-app.post("/urls/:shortURL/delete", (req, res) => {
-  delete urlDatabase[req.params.shortURL];
+app.post("/urls/:shortURL/delete", (req, res) => {//this is to operate from UI by "delete" button
+  if (urlDatabase[req.params.shortURL].userID === req.session.user_id) {
+    delete urlDatabase[req.params.shortURL];
+    res.redirect("/urls");
+  } else {
+    res.redirect("/urls");
+  }
   // let templateVars = urlDatabase;
   // res.render("urls_index", templateVars);
-  res.redirect("/urls");
+});
+
+app.get("/urls/:shortURL/delete", (req, res) => {
+  if (urlDatabase[req.params.shortURL].userID === req.session.user_id) {
+    delete urlDatabase[req.params.shortURL];
+    res.redirect("/urls");
+  } else {
+    res.redirect("/urls");
+  }
+  // let templateVars = urlDatabase;
+  // res.render("urls_index", templateVars);
 });
 
 app.post("/urls/:id", (req, res) => {
-  if (!req.cookies["user_id"]) {
-    res.redirect("login");
-  } else if (urlDatabase[req.params.id].userID === req.cookies["user_id"]) {
+  if (!req.session.user_id) {
+    res.redirect("/login");
+  } else if (urlDatabase[req.params.id].userID === req.session.user_id) {
+    urlDatabase[req.params.id].longURL = req.body.longURL;
     res.redirect("/urls/");
   }
   // urlDatabase[req.params.id].longURL = req.body.longURL;
 });
 
 app.get("/u/:shortURL", (req, res) => {
+  console.log(urlDatabase);
   const longURL = urlDatabase[req.params.shortURL].longURL;
+  console.log(longURL);
   res.redirect(longURL);
 })
 
@@ -180,5 +208,3 @@ app.get("/set", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}!`);
 });
-
-module.exports = users;

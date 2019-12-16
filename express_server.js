@@ -5,10 +5,12 @@ const PORT = process.env.port || 8080; // default port 8080
 const bodyParser = require("body-parser");
 // const cookieParser = require('cookie-parser'); //replace cookieParser with cookieSession
 const cookieSession = require('cookie-session');
+const randomize = require('randomatic'); //generate a random string with specific pattern
 app.use(bodyParser.urlencoded({extended: true}));
 // app.use(cookieParser());
 app.use(cookieSession({keys: ['light']}));
 app.set("view engine", "ejs");
+
 //***********encrypt********/
 const bcrypt = require('bcrypt');
 const password1 = "purple-monkey-dinosaur";
@@ -22,8 +24,9 @@ const generateRandomString = function() {
   return strForShortUrl;
 };
 
-//move the getUserByEmail(get user by email) function into help.js file
+//move the getUserByEmail(get user by email) function into helpers.js file
 
+//below function "urlsForUser" is to generate a customized urlDatabase for a specific user.
 const urlsForUser = (id) => {
   let userURLDatabase = {};
   for (const item in urlDatabase) {
@@ -61,27 +64,23 @@ app.get("/login", (req, res) => {
 });
 
 app.post("/login", (req, res) => {
-  // console.log(req.body);
-  let user = getUserByEmail(req.body.email, users);
-  // console.log("post login", user);
-  if (user) {
+  let user = getUserByEmail(req.body.email, users);//User exists and is returned by getUserByEmail function
+  if (user) { //user exists and then we compare the password
     if (bcrypt.compareSync(req.body.password, user.password)) {
-      // res.cookie("user_id", user.id);
       req.session.user_id = user.id;
-      res.redirect("/urls");
+      res.redirect("/urls"); //password is correct we direct user to /urls page.
     } else {
       res.statusCode = 403;
-      res.send();
+      res.send("Password is incorrect, please try again!");
+      res.redirect("/login");
     }
   } else {
     res.statusCode = 403;
-    res.send();
+    res.send("User does not exist, please re-login or register!");
   }
-  // res.redirect("/urls");
 });
 
 app.post("/logout", (req,res) => {
-  // res.clearCookie("user_id");
   req.session = null;
   res.redirect("/urls");
 });
@@ -91,22 +90,20 @@ app.get("/register", (req, res) => {
 });
 
 app.post("/register", (req, res) => {
-  // console.log(req.body); //it returns { email: 'sdf@sadf', password: 'sefwe' }
   if (req.body.email.length === 0 || req.body.password.length === 0) {
     res.statusCode = 400;
-    res.send();
+    res.send("Cannot send empty email or password!");
   } else {
-    if (!getUserByEmail(req.body.email)) {
-      const randomID = generateRandomString();
+    if (!getUserByEmail(req.body.email, users)) {
+      const randomID = randomize('Aa0', 6);
       let hashedPassword = bcrypt.hashSync(req.body.password, 10);
       users[randomID] = {id: randomID, email: req.body.email, password: hashedPassword};//use body since it handles HTML FORM, if handles user input, we should use req.params...
-      // console.log(users);
-      // res.cookie("user_id", randomID);
+      console.log(users);
       req.session.user_id = randomID;
       res.redirect("/urls");
     } else {
       res.statusCode = 400;
-      res.send();
+      res.send("The email is already taken, please choose another email!");
     }
   }
 });
@@ -120,15 +117,13 @@ app.get("/urls.json", (req, res) => {
 });
 
 app.get("/urls", (req, res) => {
-  // let userURLDatabase = urlsForUser(req.cookies["user_id"]);
   let userURLDatabase = urlsForUser(req.session.user_id);
   let templateVars = {urls: userURLDatabase, user: users[req.session.user_id]};
   res.render("urls_index", templateVars);
 });
 
 app.post("/urls", (req, res) => {
-  // console.log(req.body);
-  let shortURL = generateRandomString();
+  let shortURL = randomize('Aa0', 6);
   urlDatabase[shortURL] = {}; //create the empty object before adding contents in it.
   urlDatabase[shortURL]["longURL"] = req.body["longURL"];
   // urlDatabase[shortURL]["userID"] = req.cookies["user_id"];
@@ -137,7 +132,6 @@ app.post("/urls", (req, res) => {
 });
 
 app.get("/urls/new", (req, res) => {
-  // res.render("urls_new", {user: users[req.cookies["user_id"]]});
   res.render("urls_new", {user: users[req.session.user_id]});
 });
 //above route must be above "/urls/:shortURL" since otherwise it would be taken as :ID
@@ -155,8 +149,6 @@ app.post("/urls/:shortURL/delete", (req, res) => {//this is to operate from UI b
   } else {
     res.redirect("/urls");
   }
-  // let templateVars = urlDatabase;
-  // res.render("urls_index", templateVars);
 });
 
 app.get("/urls/:shortURL/delete", (req, res) => {
@@ -166,8 +158,6 @@ app.get("/urls/:shortURL/delete", (req, res) => {
   } else {
     res.redirect("/urls");
   }
-  // let templateVars = urlDatabase;
-  // res.render("urls_index", templateVars);
 });
 
 app.post("/urls/:id", (req, res) => {
@@ -177,13 +167,10 @@ app.post("/urls/:id", (req, res) => {
     urlDatabase[req.params.id].longURL = req.body.longURL;
     res.redirect("/urls/");
   }
-  // urlDatabase[req.params.id].longURL = req.body.longURL;
 });
 
-app.get("/u/:shortURL", (req, res) => {
-  // console.log(urlDatabase);
+app.get("/u/:shortURL", (req, res) => {//anyone can access the URL as long as he/she has the short URL
   const longURL = urlDatabase[req.params.shortURL].longURL;
-  // console.log(longURL);
   res.redirect(longURL);
 });
 

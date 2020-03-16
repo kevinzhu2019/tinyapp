@@ -59,8 +59,11 @@ const users = {
   }
 };
 
-app.get("/login", (req, res) => {
+app.get("/login", (req, res, next) => {
   res.render("login");
+  next();
+}, (req,res) => {
+  console.log("Now the user is in login page!");
 });
 
 app.post("/login", (req, res) => {
